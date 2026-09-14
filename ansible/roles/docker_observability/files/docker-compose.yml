@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  mysql-server:
+    image: mysql:${MYSQL_VERSION}
+    container_name: mysql-server
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_bin
+      - --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - obs-net
+    restart: always
+
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:${ZABBIX_VERSION}
+    container_name: zabbix-server
+    ports:
+      - "10051:10051"
+    environment:
+      - DB_SERVER_HOST=${DB_SERVER_HOST}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    depends_on:
+      - mysql-server
+    networks:
+      - obs-net
+    restart: always
+
+  zabbix-web-nginx:
+    image: zabbix/zabbix-web-nginx-mysql:${ZABBIX_VERSION}
+    container_name: zabbix-web-nginx
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_SERVER_HOST=${DB_SERVER_HOST}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - ZBX_SERVER_HOST=${ZBX_SERVER_HOST}
+      - PHP_TZ=${PHP_TZ}
+    depends_on:
+      - mysql-server
+      - zabbix-server
+    networks:
+      - obs-net
+    restart: always
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION}
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION=true
+      - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=alexanderzobnin-zabbix-app,alexanderzobnin-zabbix-datasource
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - zabbix-web-nginx
+    networks:
+      - obs-net
+    restart: always
+
+  zabbix-agent2:
+    image: zabbix/zabbix-agent2:ubuntu-7.4-latest
+    container_name: zabbix_agent2
+    restart: always
+    user: "0:0"
+    ports:
+      - "10050:10050"
+    environment:
+      - ZBX_SERVER_HOST=zabbix-server,127.0.0.1
+      - ZBX_HOSTNAME=zabbix_agent
+      - ZBX_PASSIVE_ALLOW=true
+      - ZBX_REFRESHACTIVECHECKS=120
+    volumes:
+      - /:/host:ro
+      - /etc/hostname:/etc/ro_hostname:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    privileged: true
+    networks:
+      - obs-net
+
+networks:
+  obs-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  grafana_data:

@@ -1,0 +1,57 @@
+---
+- name: Adicionar repositório oficial do Docker
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/centos/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+    mode: '0644'
+
+- name: Instalar Engine do Docker e Plugin Compose
+  ansible.builtin.dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+
+- name: Habilitar e iniciar serviço do Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Criar diretórios de projeto e provisioning
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/observability
+    - /opt/observability/env
+    - /opt/observability/grafana/provisioning/datasources
+    - /opt/observability/grafana/provisioning/plugins
+
+- name: Copiar arquivos de configuração da stack
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode | default('0644') }}"
+  loop:
+    - { src: 'docker-compose.yml', dest: '/opt/observability/docker-compose.yml' }
+    - { src: 'env/zabbix.env', dest: '/opt/observability/.env' }
+    - { src: 'grafana/provisioning/datasources/zabbix.yaml', dest: '/opt/observability/grafana/provisioning/datasources/zabbix.yaml' }
+    - { src: 'grafana/provisioning/plugins/plugins.yaml', dest: '/opt/observability/grafana/provisioning/plugins/plugins.yaml' }
+
+- name: Subir containers via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d --build
+    chdir: /opt/observability
+  register: compose_out
+  changed_when: "'Creating' in compose_out.stdout or 'Starting' in compose_out.stdout or 'Building' in compose_out.stdout"
+
+- name: Permitir envio de ICMP ping por containers sem root
+  ansible.posix.sysctl:
+    name: net.ipv4.ping_group_range
+    value: '0 2147483647'
+    state: present
+    reload: yes

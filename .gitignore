@@ -1,0 +1,76 @@
+# ==========================================
+# Ambientes Virtuais & Python Caches
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+.pytest_cache/
+
+# ==========================================
+# Vagrant & Virtualization
+# ==========================================
+.vagrant/
+*.log
+
+# ==========================================
+# Ansible & Playbooks
+# ==========================================
+*.retry
+.ansible/
+*.galaxy/
+roles/*/.netrc
+
+# ==========================================
+# Docker & Containers (Caches / States)
+# ==========================================
+.docker/
+docker-compose.override.yml
+
+# ==========================================
+# Segredos, Chaves e Certificados (CRÍTICO)
+# ==========================================
+*.pem
+*.key
+*.crt
+*.pub
+id_rsa
+id_rsa*
+*.pfx
+.env
+.env.local
+zabbix.env
+secrets.yml
+vault_pass.txt
+
+# ==========================================
+# Arquivos de Sistema & IDEs
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDEs (VS Code, JetBrains)
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+.idea/
+*.swp
+*~
+
+# ==========================================
+# Zabbix / Grafana / Exportações locais
+# ==========================================
+*.sqlite3
+*.db
+exports/

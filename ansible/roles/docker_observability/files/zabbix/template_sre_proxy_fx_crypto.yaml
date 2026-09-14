@@ -1,0 +1,109 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 745bfe86b0df45d1ac34125b3e6e1f01
+      name: 'Templates/SRE Applications'
+  templates:
+    - uuid: a12a3b4c5d6e4f8ba0d1e2f3a4b5c6d7
+      template: 'Template_SRE_Proxy_FX_Crypto'
+      name: 'SRE - Financial Crypto Assets'
+      description: |
+        Monitors Cryptocurrency spot prices, 24h variations, and volume in a target base currency.
+        Developed for Zabbix 7.4.
+      groups:
+        - name: 'Templates/SRE Applications'
+      macros:
+        - macro: '{$CRYPTO.BASE_CURRENCY}'
+          value: 'USD'
+          description: 'Base target currency for crypto valuation (e.g. USD, BRL, EUR).'
+        - macro: '{$CRYPTO.LIST}'
+          value: 'BTC,ETH,SOL,XRP'
+          description: 'Comma-separated list of crypto assets to track.'
+        - macro: '{$CRYPTO.VOLATILITY.HIGH}'
+          value: '8'
+          description: 'High volatility threshold percentage for 24h movement.'
+      items:
+        - uuid: b23b4c5d6e7f4a9ba0d1e2f3a4b5c6d7
+          name: 'Crypto Assets - Raw JSON'
+          type: HTTP_AGENT
+          key: fx.crypto.raw
+          delay: 2m
+          history: 1d
+          trends: '0'
+          value_type: TEXT
+          description: 'Raw JSON containing crypto prices and volume.'
+          url: 'http://sre-proxy-api:8000/financial/crypto-summary?base={$CRYPTO.BASE_CURRENCY}&symbols={$CRYPTO.LIST}'
+          tags:
+            - tag: component
+              value: raw-data
+            - tag: service
+              value: crypto
+      discovery_rules:
+        - uuid: c34c5d6e7f8a4b0da1e2f3a4b5c6d7e8
+          name: 'Crypto Assets Discovery'
+          type: HTTP_AGENT
+          key: fx.crypto.discovery
+          delay: 30m
+          url: 'http://sre-proxy-api:8000/discovery/crypto-assets?symbols={$CRYPTO.LIST}'
+          description: 'Discovers configured crypto pairs.'
+          item_prototypes:
+            - uuid: d45d6e7f8a9b40d1a2f3a4b5c6d7e8f9
+              name: 'Crypto [{#SYMBOL}] / {$CRYPTO.BASE_CURRENCY} - Spot Price'
+              type: DEPENDENT
+              key: 'fx.crypto.price["{#SYMBOL}"]'
+              delay: '0'
+              history: 30d
+              trends: 90d
+              value_type: FLOAT
+              units: '{$CRYPTO.BASE_CURRENCY}'
+              description: 'Current market price for [{#SYMBOL}].'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#SYMBOL}'].price"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 5m
+              master_item:
+                key: fx.crypto.raw
+              tags:
+                - tag: component
+                  value: crypto-price
+                - tag: symbol
+                  value: '{#SYMBOL}'
+            - uuid: e56e7f8a9b0c41e2a3a4b5c6d7e8f9a0
+              name: 'Crypto [{#SYMBOL}] - 24h Change'
+              type: DEPENDENT
+              key: 'fx.crypto.change_24h["{#SYMBOL}"]'
+              delay: '0'
+              history: 30d
+              trends: 90d
+              value_type: FLOAT
+              units: '%'
+              description: '24-hour price change percentage.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#SYMBOL}'].change_24h_pct"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 5m
+              master_item:
+                key: fx.crypto.raw
+              tags:
+                - tag: component
+                  value: volatility
+                - tag: symbol
+                  value: '{#SYMBOL}'
+          trigger_prototypes:
+            - uuid: f67f8a9b0c1d42f3a4b5c6d7e8f9a0b1
+              expression: 'abs(last(/Template_SRE_Proxy_FX_Crypto/fx.crypto.change_24h["{#SYMBOL}"])) > {$CRYPTO.VOLATILITY.HIGH}'
+              name: 'High Volatility on Crypto [{#SYMBOL}] ({ITEM.VALUE}%)'
+              priority: WARNING
+              description: 'Cryptocurrency [{#SYMBOL}] experienced heavy movement (> {$CRYPTO.VOLATILITY.HIGH}%) in 24h.'
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: market-risk
+                - tag: symbol
+                  value: '{#SYMBOL}'

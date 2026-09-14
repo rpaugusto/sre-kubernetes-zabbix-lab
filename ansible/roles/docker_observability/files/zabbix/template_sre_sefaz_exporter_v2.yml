@@ -1,0 +1,238 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+    - uuid: 745bfe86b0df45d1ac34125b3e6e1f01
+      name: 'Templates/SRE Applications'
+  templates:
+    - uuid: 8f921a41e98d4d8b9a10123a123b4567
+      template: SRE-SEFAZ_Authorizers_Monitoring
+      name: 'SRE - SEFAZ Authorizers Monitoring'
+      description: |
+        Official SRE Template v2.0 (English Standard) for monitoring Brazilian SEFAZ Authorizers availability and Network/DNS Performance.
+        
+        Relies on the simplified single-endpoint FastAPI exporter with Prometheus-styled JSON keys.
+        Developed for Zabbix 7.4.
+      groups:
+        - name: 'Templates/SRE Applications'
+      items:
+        # --- MASTER ITEM ---
+        - uuid: c1a2b3c4d5e64f7a8b9c0d1e2f3a4b5c
+          name: 'SEFAZ - Raw Status JSON'
+          type: HTTP_AGENT
+          key: sefaz.status.raw
+          delay: 2m
+          history: 1d
+          value_type: TEXT
+          description: 'Fetches the consolidated JSON payload containing metrics and availability of all SEFAZ UFs from the root endpoint.'
+          url: 'http://sre-sefaz-exporter:8000/'
+          tags:
+            - tag: component
+              value: raw-data
+            - tag: service
+              value: sefaz
+
+        # --- INFRASTRUCTURE DEPENDENT ITEMS (ENGLISH KEYS) ---
+        - uuid: a1c2e3b4-dns-time-0000-000000000001
+          name: 'SEFAZ - DNS Resolution Time'
+          type: DEPENDENT
+          key: sefaz.infra.dns.time
+          history: 7d
+          value_type: FLOAT
+          units: ms
+          description: 'Time taken to resolve SEFAZ domain via local DNS server.'
+          master_item:
+            key: sefaz.status.raw
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.dns.dns_resolution_time_ms'
+          tags:
+            - tag: component
+              value: network
+            - tag: protocol
+              value: dns
+
+        - uuid: a1c2e3b4-dns-stat-0000-000000000002
+          name: 'SEFAZ - DNS Resolution Status'
+          type: DEPENDENT
+          key: sefaz.infra.dns.status
+          history: 7d
+          value_type: UINT64
+          description: 'DNS lookup status. 1 = Success, 0 = Failure.'
+          master_item:
+            key: sefaz.status.raw
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.dns.status'
+          tags:
+            - tag: component
+              value: network
+            - tag: protocol
+              value: dns
+
+        - uuid: a1c2e3b4-tcp-time-0000-000000000003
+          name: 'SEFAZ - TCP Connection Time'
+          type: DEPENDENT
+          key: sefaz.infra.tcp.time
+          history: 7d
+          value_type: FLOAT
+          units: ms
+          description: 'Time taken to establish TCP connection with SEFAZ server.'
+          master_item:
+            key: sefaz.status.raw
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.tcp_connect_time_ms'
+          tags:
+            - tag: component
+              value: network
+            - tag: protocol
+              value: tcp
+
+        - uuid: a1c2e3b4-http-time-0000-000000000004
+          name: 'SEFAZ - Total HTTP Response Time'
+          type: DEPENDENT
+          key: sefaz.infra.http.time
+          history: 14d
+          value_type: FLOAT
+          units: ms
+          description: 'Total time elapsed during the HTTP request lifecycle.'
+          master_item:
+            key: sefaz.status.raw
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.http_response_time_ms'
+          tags:
+            - tag: component
+              value: network
+            - tag: protocol
+              value: http
+
+        - uuid: a1c2e3b4-http-code-0000-000000000005
+          name: 'SEFAZ - HTTP Status Code'
+          type: DEPENDENT
+          key: sefaz.infra.http.code
+          history: 7d
+          value_type: UINT64
+          description: 'HTTP status code returned by the SEFAZ portal.'
+          master_item:
+            key: sefaz.status.raw
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.http_status_code'
+          tags:
+            - tag: component
+              value: infrastructure
+            - tag: protocol
+              value: http
+
+      # --- LOW-LEVEL DISCOVERY RULE (LLD) ---
+      discovery_rules:
+        - uuid: d1e2f3a4b5c64d7e8f9a0b1c2d3e4f5a
+          name: 'SEFAZ Authorizers Discovery'
+          type: DEPENDENT
+          key: sefaz.discovery
+          delay: '0'
+          description: 'Extracts the authorizers list directly from the raw master item payload using English schema.'
+          master_item:
+            key: sefaz.status.raw
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.authorizers'
+          item_prototypes:
+            # Status Code Prototype
+            - uuid: e1f2a3b4c5d64e7f8a9b0c1d2e3f4a5b
+              name: 'SEFAZ [{#UF}] - Status Code'
+              type: DEPENDENT
+              key: 'sefaz.status.code[{#UF}]'
+              history: 30d
+              trends: 90d
+              description: 'Operational status code for the SEFAZ authorizer [{#UF}].'
+              valuemap:
+                name: 'SEFAZ Status Map'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.authorizers[?(@."{#UF}" == "{#UF}")].status_code.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 10m
+              master_item:
+                key: sefaz.status.raw
+              tags:
+                - tag: component
+                  value: status
+                - tag: service
+                  value: sefaz
+                - tag: uf
+                  value: '{#UF}'
+              trigger_prototypes:
+                - uuid: b1c2d3e4f5a64b7c8d9e0f1a2b3c4d5e
+                  expression: 'last(/SRE-SEFAZ_Authorizers_Monitoring/sefaz.status.code[{#UF}])=3'
+                  name: 'SEFAZ [{#UF}] is DOWN (Outage)'
+                  priority: HIGH
+                  description: 'The SEFAZ authorizer for state {#UF} is offline or unreachable.'
+                  manual_close: 'YES'
+                  tags:
+                    - tag: scope
+                      value: availability
+                    - tag: severity
+                      value: high
+                    - tag: uf
+                      value: '{#UF}'
+                - uuid: a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d
+                  expression: 'last(/SRE-SEFAZ_Authorizers_Monitoring/sefaz.status.code[{#UF}])=2'
+                  name: 'SEFAZ [{#UF}] is experiencing instability/degradation'
+                  priority: WARNING
+                  description: 'The SEFAZ authorizer for state {#UF} is reporting service degradation or minor outage.'
+                  manual_close: 'YES'
+                  tags:
+                    - tag: scope
+                      value: availability
+                    - tag: severity
+                      value: warning
+                    - tag: uf
+                      value: '{#UF}'
+
+            # Status Description Prototype
+            - uuid: f1a2b3c4d5e64f7a8b9c0d1e2f3a4b5d
+              name: 'SEFAZ [{#UF}] - Status Description'
+              type: DEPENDENT
+              key: 'sefaz.status.desc[{#UF}]'
+              history: 7d
+              value_type: CHAR
+              description: 'Human-readable status text for SEFAZ authorizer [{#UF}].'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.authorizers[?(@."{#UF}" == "{#UF}")].status_description.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 30m
+              master_item:
+                key: sefaz.status.raw
+              tags:
+                - tag: component
+                  value: description
+                - tag: service
+                  value: sefaz
+                - tag: uf
+                  value: '{#UF}'
+
+      valuemaps:
+        - uuid: c1d2e3f4a5b64c7d8e9f0a1b2c3d4e5f
+          name: 'SEFAZ Status Map'
+          mappings:
+            - value: '1'
+              newvalue: Operational
+            - value: '2'
+              newvalue: 'Instability / Degraded'
+            - value: '3'
+              newvalue: 'Down / Outage'
+            - value: '0'
+              newvalue: 'Unknown / Scraping Error'

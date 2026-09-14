@@ -1,0 +1,202 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 745bfe86b0df45d1ac34125b3e6e1f01
+      name: 'Templates/SRE Applications'
+  templates:
+    - uuid: 1a2b3c4d5e6f4a8ba0d1e2f3a4b5c6d7
+      template: 'Template_SRE_Proxy_Security_SSL'
+      name: 'SRE - Security & SSL Checks'
+      description: |
+        Official SRE Template for monitoring SSL/TLS Certificate Expiration, Certificate Authority Chain, Protocol Versions, and Handshake Latency.
+        
+        Leverages the SRE Proxy API to perform automated security checks and SSL inspection against external/internal endpoints.
+        
+        Developed for Zabbix 7.4.
+      groups:
+        - name: 'Templates/SRE Applications'
+      items:
+        - uuid: 2b3c4d5e6f7a4b9ca0d1e2f3a4b5c6d7
+          name: 'Security Checks - Raw JSON'
+          type: HTTP_AGENT
+          key: security.ssl.raw
+          delay: 10m
+          history: 1d
+          trends: '0'
+          value_type: TEXT
+          description: 'Fetches consolidated JSON containing SSL/TLS verification metrics for all monitored domains.'
+          url: 'http://sre-proxy-api:8000/security/ssl-summary'
+          tags:
+            - tag: component
+              value: raw-data
+            - tag: service
+              value: ssl-security
+      discovery_rules:
+        - uuid: 3c4d5e6f7a8b4c0da1e2f3a4b5c6d7e8
+          name: 'SSL Domains Discovery'
+          type: HTTP_AGENT
+          key: security.ssl.discovery
+          delay: 1h
+          url: 'http://sre-proxy-api:8000/discovery/ssl-domains'
+          description: 'Discovers all configured HTTPS endpoints and domain names for certificate tracking.'
+          item_prototypes:
+            - uuid: 4d5e6f7a8b9c40d1a2f3a4b5c6d7e8f9
+              name: 'SSL Certificate [{#DOMAIN}] - Expiry Days'
+              type: DEPENDENT
+              key: 'security.ssl.expiry_days["{#DOMAIN}"]'
+              delay: '0'
+              history: 30d
+              trends: 90d
+              value_type: UNSIGNED
+              units: days
+              description: 'Number of days remaining until the SSL certificate for [{#DOMAIN}] expires.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#DOMAIN}'].expiry_days"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: security.ssl.raw
+              tags:
+                - tag: component
+                  value: ssl-expiry
+                - tag: domain
+                  value: '{#DOMAIN}'
+            - uuid: 5e6f7a8b9c0d41e2a3a4b5c6d7e8f9a0
+              name: 'SSL Certificate [{#DOMAIN}] - Handshake Time'
+              type: DEPENDENT
+              key: 'security.ssl.handshake_time["{#DOMAIN}"]'
+              delay: '0'
+              history: 14d
+              trends: 90d
+              value_type: FLOAT
+              units: ms
+              description: 'SSL/TLS Handshake negotiation time in milliseconds for [{#DOMAIN}].'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#DOMAIN}'].handshake_ms"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 10m
+              master_item:
+                key: security.ssl.raw
+              tags:
+                - tag: component
+                  value: ssl-handshake
+                - tag: domain
+                  value: '{#DOMAIN}'
+            - uuid: 6f7a8b9c0d1e4f3aa4b5c6d7e8f9a0b1
+              name: 'SSL Certificate [{#DOMAIN}] - Status'
+              type: DEPENDENT
+              key: 'security.ssl.status["{#DOMAIN}"]'
+              delay: '0'
+              history: 14d
+              trends: 30d
+              value_type: UNSIGNED
+              description: 'SSL Validation Status for [{#DOMAIN}] (1 = Valid, 0 = Invalid/Expired/Untrusted CA).'
+              valuemap:
+                name: 'SSL Validation Map'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#DOMAIN}'].is_valid"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 30m
+              master_item:
+                key: security.ssl.raw
+              tags:
+                - tag: component
+                  value: ssl-status
+                - tag: domain
+                  value: '{#DOMAIN}'
+            - uuid: 7a8b9c0d1e2f4a3ba5c6d7e8f9a0b1c2
+              name: 'SSL Certificate [{#DOMAIN}] - Issuer'
+              type: DEPENDENT
+              key: 'security.ssl.issuer["{#DOMAIN}"]'
+              delay: '0'
+              history: 7d
+              trends: '0'
+              value_type: CHAR
+              description: 'Certificate Authority (CA) issuer for [{#DOMAIN}] (e.g., Let''s Encrypt, Digicert).'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#DOMAIN}'].issuer"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 12h
+              master_item:
+                key: security.ssl.raw
+              tags:
+                - tag: component
+                  value: ssl-issuer
+                - tag: domain
+                  value: '{#DOMAIN}'
+          trigger_prototypes:
+            - uuid: 8b9c0d1e2f3a4b5ca6d7e8f9a0b1c2d3
+              expression: 'last(/Template_SRE_Proxy_Security_SSL/security.ssl.status["{#DOMAIN}"])=0'
+              name: 'SSL Certificate [{#DOMAIN}] is INVALID or EXPIRED'
+              priority: HIGH
+              description: 'SSL certificate verification failed for domain [{#DOMAIN}]. Handshake error, expired certificate, or untrusted CA authority detected.'
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: security
+                - tag: severity
+                  value: high
+                - tag: domain
+                  value: '{#DOMAIN}'
+            - uuid: 9c0d1e2f3a4b4c5da7e8f9a0b1c2d3e4
+              expression: 'last(/Template_SRE_Proxy_Security_SSL/security.ssl.expiry_days["{#DOMAIN}"]) <= 7'
+              name: 'SSL Certificate [{#DOMAIN}] expires in LESS than 7 days ({ITEM.VALUE} days left)'
+              priority: HIGH
+              description: 'SSL certificate for [{#DOMAIN}] will expire in less than 7 days. Urgent renewal required to avoid outage.'
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: security
+                - tag: severity
+                  value: high
+                - tag: domain
+                  value: '{#DOMAIN}'
+            - uuid: 0d1e2f3a4b5c4d7ea8f9a0b1c2d3e4f5
+              expression: 'last(/Template_SRE_Proxy_Security_SSL/security.ssl.expiry_days["{#DOMAIN}"]) <= 15'
+              name: 'SSL Certificate [{#DOMAIN}] expires in less than 15 days ({ITEM.VALUE} days left)'
+              priority: WARNING
+              description: 'SSL certificate for [{#DOMAIN}] is approaching expiration.'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'SSL Certificate [{#DOMAIN}] expires in LESS than 7 days ({ITEM.VALUE} days left)'
+                  expression: 'last(/Template_SRE_Proxy_Security_SSL/security.ssl.expiry_days["{#DOMAIN}"]) <= 7'
+              tags:
+                - tag: scope
+                  value: security
+                - tag: severity
+                  value: warning
+                - tag: domain
+                  value: '{#DOMAIN}'
+            - uuid: 1e2f3a4b5c6d4e7fa90b1c2d3e4f5a6b
+              expression: 'min(/Template_SRE_Proxy_Security_SSL/security.ssl.handshake_time["{#DOMAIN}"],#3) > 1000'
+              name: 'SSL Handshake for [{#DOMAIN}] is slow (> 1000ms)'
+              priority: AVERAGE
+              description: 'TLS Handshake negotiation time to [{#DOMAIN}] is taking over 1 second, impacting client initial connection latency.'
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: performance
+                - tag: severity
+                  value: average
+                - tag: domain
+                  value: '{#DOMAIN}'
+      valuemaps:
+        - uuid: 2f3a4b5c6d7e4f9aa0b1c2d3e4f5a6b7
+          name: 'SSL Validation Map'
+          mappings:
+            - value: '1'
+              newvalue: Valid / Trusted
+            - value: '0'
+              newvalue: Invalid / Untrusted

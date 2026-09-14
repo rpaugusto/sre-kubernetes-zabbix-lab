@@ -1,0 +1,6 @@
+---
+- name: SRE Lab - Provisionamento da Stack de Observabilidade
+  hosts: all
+  become: true
+  roles:
+    - docker_observability

@@ -1,0 +1,185 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 745bfe86b0df45d1ac34125b3e6e1f01
+      name: 'Templates/SRE Applications'
+  templates:
+    - uuid: 1f2a3b4c5d6e4f8ba0d1e2f3a4b5c6d7
+      template: 'Template_SRE_Proxy_Synthetic_Monitoring'
+      name: 'SRE - Synthetic Monitoring Probe'
+      description: |
+        Official SRE Template for End-to-End (E2E) Synthetic Monitoring, API Transaction Probes, and User Journey Validation.
+        
+        Leverages the SRE Proxy API to execute synthetic test scenarios, reporting status, step-by-step latency, and HTTP response codes.
+        
+        Developed for Zabbix 7.4.
+      groups:
+        - name: 'Templates/SRE Applications'
+      items:
+        - uuid: 2a3b4c5d6e7f4a9ba0d1e2f3a4b5c6d7
+          name: 'Synthetic Probes - Raw JSON'
+          type: HTTP_AGENT
+          key: synthetic.raw
+          delay: 2m
+          history: 1d
+          trends: '0'
+          value_type: TEXT
+          description: 'Fetches consolidated JSON containing status, total execution time, and error details for all synthetic scenarios.'
+          url: 'http://sre-proxy-api:8000/synthetic/summary'
+          tags:
+            - tag: component
+              value: raw-data
+            - tag: service
+              value: synthetic-monitoring
+      discovery_rules:
+        - uuid: 3b4c5d6e7f8a4b0da1e2f3a4b5c6d7e8
+          name: 'Synthetic Scenarios Discovery'
+          type: HTTP_AGENT
+          key: synthetic.discovery
+          delay: 30m
+          url: 'http://sre-proxy-api:8000/discovery/synthetic-scenarios'
+          description: 'Discovers active synthetic transactions and E2E scenarios configured on the SRE Proxy.'
+          item_prototypes:
+            - uuid: 4c5d6e7f8a9b40d1a2f3a4b5c6d7e8f9
+              name: 'Synthetic Scenario [{#SCENARIO}] - Total Duration'
+              type: DEPENDENT
+              key: 'synthetic.duration["{#SCENARIO}"]'
+              delay: '0'
+              history: 14d
+              trends: 90d
+              value_type: FLOAT
+              units: ms
+              description: 'Total execution time in milliseconds for the end-to-end scenario [{#SCENARIO}].'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#SCENARIO}'].duration_ms"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 10m
+              master_item:
+                key: synthetic.raw
+              tags:
+                - tag: component
+                  value: latency
+                - tag: scenario
+                  value: '{#SCENARIO}'
+            - uuid: 5d6e7f8a9b0c41e2a3a4b5c6d7e8f9a0
+              name: 'Synthetic Scenario [{#SCENARIO}] - Status'
+              type: DEPENDENT
+              key: 'synthetic.status["{#SCENARIO}"]'
+              delay: '0'
+              history: 14d
+              trends: 30d
+              value_type: UNSIGNED
+              description: 'Overall execution status for scenario [{#SCENARIO}] (1 = Success, 0 = Failed).'
+              valuemap:
+                name: 'Synthetic Scenario Map'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#SCENARIO}'].status"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 10m
+              master_item:
+                key: synthetic.raw
+              tags:
+                - tag: component
+                  value: availability
+                - tag: scenario
+                  value: '{#SCENARIO}'
+            - uuid: 6e7f8a9b0c1d42f3a4b5c6d7e8f9a0b1
+              name: 'Synthetic Scenario [{#SCENARIO}] - Failed Step'
+              type: DEPENDENT
+              key: 'synthetic.failed_step["{#SCENARIO}"]'
+              delay: '0'
+              history: 7d
+              trends: '0'
+              value_type: CHAR
+              description: 'Name or index of the step that caused the scenario failure.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#SCENARIO}'].failed_step"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: synthetic.raw
+              tags:
+                - tag: component
+                  value: step-analysis
+                - tag: scenario
+                  value: '{#SCENARIO}'
+            - uuid: 7f8a9b0c1d2e43a4b5c6d7e8f9a0b1c2
+              name: 'Synthetic Scenario [{#SCENARIO}] - HTTP Status Code'
+              type: DEPENDENT
+              key: 'synthetic.http_code["{#SCENARIO}"]'
+              delay: '0'
+              history: 14d
+              trends: 30d
+              value_type: UNSIGNED
+              description: 'HTTP response code returned by the target endpoint during the probe.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - "$.['{#SCENARIO}'].http_code"
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 10m
+              master_item:
+                key: synthetic.raw
+              tags:
+                - tag: component
+                  value: http-status
+                - tag: scenario
+                  value: '{#SCENARIO}'
+          trigger_prototypes:
+            - uuid: 8a9b0c1d2e3f44b5a6d7e8f9a0b1c2d3
+              expression: 'last(/Template_SRE_Proxy_Synthetic_Monitoring/synthetic.status["{#SCENARIO}"])=0'
+              name: 'Synthetic Probe [{#SCENARIO}] FAILED'
+              priority: HIGH
+              description: 'Synthetic transaction [{#SCENARIO}] failed. Step with error: {ITEM.VALUE2}.'
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: severity
+                  value: high
+                - tag: scenario
+                  value: '{#SCENARIO}'
+            - uuid: 9b0c1d2e3f4a45c6a7e8f9a0b1c2d3e4
+              expression: 'min(/Template_SRE_Proxy_Synthetic_Monitoring/synthetic.duration["{#SCENARIO}"],#3) > 5000'
+              name: 'Synthetic Probe [{#SCENARIO}] is slow (> 5000ms)'
+              priority: AVERAGE
+              description: 'Total execution time for scenario [{#SCENARIO}] has sustained above 5 seconds across 3 consecutive probes.'
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: performance
+                - tag: severity
+                  value: average
+                - tag: scenario
+                  value: '{#SCENARIO}'
+            - uuid: 0c1d2e3f4a5b46d7a8f9a0b1c2d3e4f5
+              expression: 'last(/Template_SRE_Proxy_Synthetic_Monitoring/synthetic.http_code["{#SCENARIO}"]) >= 500'
+              name: 'Synthetic Probe [{#SCENARIO}] HTTP 5xx Server Error'
+              priority: HIGH
+              description: 'Synthetic probe returned server error code {ITEM.VALUE}. Target application is experiencing backend errors.'
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: severity
+                  value: high
+                - tag: scenario
+                  value: '{#SCENARIO}'
+      valuemaps:
+        - uuid: 1d2e3f4a5b6c47e8a90b1c2d3e4f5a6b
+          name: 'Synthetic Scenario Map'
+          mappings:
+            - value: '1'
+              newvalue: Passed / Success
+            - value: '0'
+              newvalue: Failed / Error
