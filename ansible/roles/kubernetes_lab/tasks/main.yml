@@ -106,12 +106,9 @@
     - "'observability_obs-net' in docker_networks.stdout"
     - "'k8s-sre' in kind_clusters.stdout or kind_create is defined"
 
-- name: Conectar Kind à rede do ambiente de observabilidade
+- name: Conectar o cluster Kind na rede do Docker Compose do Zabbix
   ansible.builtin.command:
-    cmd: docker network connect observability_obs-net k8s-sre-control-plane
-  when:
-    - "'observability_obs-net' in docker_networks.stdout"
-    - kind_networks is defined
-    - "'observability_obs-net' not in kind_networks.stdout"
-  register: network_connect
-  changed_when: network_connect.rc == 0
+    cmd: "docker network connect observability_obs-net k8s-sre-control-plane"
+  register: net_out
+  failed_when: net_out.rc != 0 and "already exists" not in net_out.stderr
+  changed_when: net_out.rc == 0

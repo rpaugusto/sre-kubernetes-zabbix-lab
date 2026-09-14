@@ -33,7 +33,7 @@
 
 - name: Copiar arquivos de configuração da stack
   ansible.builtin.copy:
-    src: "{{ item.src }}"
+    src: "{{ item.src }}" # <-- Removido o 'files/' daqui
     dest: "{{ item.dest }}"
     mode: "{{ item.mode | default('0644') }}"
   loop:
