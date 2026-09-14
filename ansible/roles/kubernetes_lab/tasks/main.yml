@@ -1,0 +1,117 @@
+---
+- name: Instalar dependências necessárias
+  ansible.builtin.dnf:
+    name:
+      - curl
+      - tar
+  state: present
+
+- name: Obter versão estável atual do kubectl
+  ansible.builtin.get_url:
+    url: https://dl.k8s.io/release/stable.txt
+    dest: /tmp/kubectl-version
+    mode: '0644'
+  register: kubectl_version_file
+
+- name: Ler versão estável do kubectl
+  ansible.builtin.slurp:
+    src: /tmp/kubectl-version
+  register: kubectl_version_raw
+
+- name: Definir versão do kubectl
+  ansible.builtin.set_fact:
+    kubectl_version: "{{ kubectl_version_raw.content | b64decode | trim }}"
+
+- name: Baixar kubectl
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Validar kubectl
+  ansible.builtin.command:
+    cmd: kubectl version --client
+  register: kubectl_check
+  changed_when: false
+
+- name: Obter última versão do Kind
+  ansible.builtin.shell:
+    cmd: |
+      curl -fsSL https://api.github.com/repos/kubernetes-sigs/kind/releases/latest \
+      | grep '"tag_name":' \
+      | cut -d '"' -f 4
+  register: kind_version
+  changed_when: false
+
+- name: Baixar Kind
+  ansible.builtin.get_url:
+    url: "https://kind.sigs.k8s.io/dl/{{ kind_version.stdout }}/kind-linux-amd64"
+    dest: /usr/local/bin/kind
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Validar Kind
+  ansible.builtin.command:
+    cmd: kind version
+  register: kind_check
+  changed_when: false
+
+- name: Baixar instalador oficial do Helm
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get_helm.sh
+    mode: '0700'
+
+- name: Executar instalador do Helm
+  ansible.builtin.command:
+    cmd: /tmp/get_helm.sh
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Validar Helm
+  ansible.builtin.command:
+    cmd: helm version
+  register: helm_check
+  changed_when: false
+
+- name: Verificar clusters Kind existentes
+  ansible.builtin.command:
+    cmd: kind get clusters
+  register: kind_clusters
+  changed_when: false
+
+- name: Criar cluster Kubernetes via Kind
+  ansible.builtin.command:
+    cmd: kind create cluster --name k8s-sre
+  when: "'k8s-sre' not in kind_clusters.stdout"
+
+- name: Verificar redes Docker existentes
+  ansible.builtin.command:
+    cmd: docker network ls --format '{{ "{{.Name}}" }}'
+  register: docker_networks
+  changed_when: false
+
+- name: Verificar se o node control-plane já está conectado
+  ansible.builtin.shell:
+    cmd: >
+      docker inspect
+      -f '{% raw %}{{json .NetworkSettings.Networks}}{% endraw %}'
+      k8s-sre-control-plane
+  register: kind_networks
+  changed_when: false
+  when:
+    - "'observability_obs-net' in docker_networks.stdout"
+    - "'k8s-sre' in kind_clusters.stdout or kind_create is defined"
+
+- name: Conectar Kind à rede do ambiente de observabilidade
+  ansible.builtin.command:
+    cmd: docker network connect observability_obs-net k8s-sre-control-plane
+  when:
+    - "'observability_obs-net' in docker_networks.stdout"
+    - kind_networks is defined
+    - "'observability_obs-net' not in kind_networks.stdout"
+  register: network_connect
+  changed_when: network_connect.rc == 0

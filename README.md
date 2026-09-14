@@ -17,23 +17,40 @@ O propósito deste laboratório é validar os limites de performance e o impacto
 2. Stack de Monitoramento rodando em containers Docker isolados via rede de bridge.
 3. Um cluster Kubernetes (Kind) conectado de forma híbrida à rede do Docker Compose para viabilizar a coleta do Zabbix Proxy interno.
 
-```
+## 📂 Estrutura do Projeto
+
+A arquitetura de arquivos do repositório adota o padrão de desenvolvimento profissional com **Ansible Roles**, segmentando as tarefas de infraestrutura de forma modular:
+
+```text
 sre-kubernetes-zabbix-lab/
-├── .gitignore
-├── README.md
-├── Vagrantfile
-├── env/
-│   └── zabbix.env.example        <-- APENAS o modelo, sem senhas reais
+├── .gitignore                      # Proteção de credenciais e arquivos do Vagrant
+├── LICENSE                         # Licença pública do projeto (GPL-3.0)
+├── README.md                       # Documentação técnica do laboratório
+├── Vagrantfile                     # Provisionamento e limites da VM (Rocky Linux 9)
 └── ansible/
-    ├── site.yml                  <-- Seu main.yml atualizado
-    └── files/                    <-- Onde vão os arquivos de configuração
-        ├── docker-compose.yml
-        └── grafana/
-            └── provisioning/
-                ├── datasources/
-                │   └── zabbix.yaml
-                └── plugins/
-                    └── plugins.yaml
+    ├── inventory.ini               # Inventário local para o provisionamento
+    ├── site.yml                    # Playbook orquestrador principal (Chama as Roles)
+    └── roles/
+        ├── docker_observability/   # Role dedicada à Stack de Monitoramento Base
+        │   ├── tasks/
+        │   │   └── main.yml        # Instalação do Docker e setup dos containers base
+        │   └── files/              # Arquivos estáticos de configuração (Padrão Ansible)
+        │       ├── docker-compose.yml
+        │       ├── env/
+        │       │   └── zabbix.env   # Variáveis de ambiente da stack
+        │       ├── zabbix/          # Diretório de persistência do Zabbix Server
+        │       └── grafana/         # Provisionamento automático do Grafana
+        │           └── provisioning/
+        │               ├── dashboards/
+        │               │   └── dashboard.yaml
+        │               ├── datasources/
+        │               │   └── zabbix.yaml
+        │               └── plugins/
+        │                   └── plugins.yaml
+        │
+        └── kubernetes_lab/         # Role dedicada ao Cluster Kubernetes
+            └── tasks/
+                └── main.yml        # Instalação do Kubectl, Kind, Helm e criação do cluster
 ```
 
 ## 🚀 Como Executar o Laboratório
@@ -58,22 +75,3 @@ sre-kubernetes-zabbix-lab/
    vagrant up
    ```
    *O Vagrant irá criar a VM, rodar o Ansible, instalar o Docker, subir a stack do Zabbix/Grafana e preparar o ambiente para a injeção do cluster Kubernetes.*
-
-
-
-sre-kubernetes-zabbix-lab/
-├── .gitignore
-├── README.md
-├── Vagrantfile
-├── env/
-│   └── zabbix.env.example        <-- APENAS o modelo, sem senhas reais
-├── ansible/
-│   ├── site.yml                  <-- Seu main.yml atualizado
-│   └── files/                    <-- Onde vão os arquivos de configuração
-│       ├── docker-compose.yml
-│       └── grafana/
-│           └── provisioning/
-│               ├── datasources/
-│               │   └── zabbix.yaml
-│               └── plugins/
-│                   └── plugins.yaml

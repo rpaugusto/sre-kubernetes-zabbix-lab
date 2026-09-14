@@ -10,8 +10,8 @@ Vagrant.configure("2") do |config|
   config.vm.network "private_network", ip: "192.168.56.10"
   
   config.vm.provider "virtualbox" do |v|
-    v.memory = 2048
-    v.cpus = 2
+    v.memory = 4096
+    v.cpus = 4
     v.name = "sre-lab-k8s"
   end
 
