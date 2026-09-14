@@ -58,22 +58,3 @@ sre-kubernetes-zabbix-lab/
    vagrant up
    ```
    *O Vagrant irá criar a VM, rodar o Ansible, instalar o Docker, subir a stack do Zabbix/Grafana e preparar o ambiente para a injeção do cluster Kubernetes.*
-
-
-
-sre-kubernetes-zabbix-lab/
-├── .gitignore
-├── README.md
-├── Vagrantfile
-├── env/
-│   └── zabbix.env.example        <-- APENAS o modelo, sem senhas reais
-├── ansible/
-│   ├── site.yml                  <-- Seu main.yml atualizado
-│   └── files/                    <-- Onde vão os arquivos de configuração
-│       ├── docker-compose.yml
-│       └── grafana/
-│           └── provisioning/
-│               ├── datasources/
-│               │   └── zabbix.yaml
-│               └── plugins/
-│                   └── plugins.yaml
