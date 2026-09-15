@@ -40,3 +40,29 @@
 - name: K8S Lab - Exibir versão instalada
   ansible.builtin.debug:
     msg: "{{ helm_version.stdout }}"
+
+- name: K8S Lab - Baixar e instalar o kubectl (CLI do Kubernetes)
+  ansible.builtin.get_url:
+    url: https://k8s.io
+    dest: /usr/local/bin/kubectl
+    mode: '0755'
+
+- name: K8S Lab - Baixar e instalar o Kind (Kubernetes in Docker)
+  ansible.builtin.get_url:
+    url: https://k8s.io
+    dest: /usr/local/bin/kind
+    mode: '0755'
+
+- name: K8S Lab - Criar o cluster Kubernetes via Kind (Usando caminho absoluto)
+  ansible.builtin.command:
+    cmd: /usr/local/bin/kind create cluster --name k8s-sre --image kindest/node:v1.30.0
+  register: kind_out
+  failed_when: kind_out.rc != 0 and "already exists" not in kind_out.stderr
+  changed_when: "'creating node' in kind_out.stdout"
+
+- name: K8S Lab - Conectar o cluster Kind na rede do Docker Compose do Zabbix
+  ansible.builtin.command:
+    cmd: docker network connect observability_obs-net k8s-sre-control-plane
+  register: net_out
+  failed_when: net_out.rc != 0 and "already exists" not in net_out.stderr
+  changed_when: net_out.rc == 0
