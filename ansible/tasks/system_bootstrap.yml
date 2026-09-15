@@ -1,0 +1,34 @@
+---
+- name: VM OS - Configurar DNS público persistente no NetworkManager
+  ansible.builtin.lineinfile:
+    path: /etc/NetworkManager/NetworkManager.conf
+    regexp: '^\[main\]'
+    line: "[main]\ndns=none"
+    state: present
+  register: nm_config
+
+- name: VM OS - Reiniciar o NetworkManager se a configuração mudou
+  ansible.builtin.systemd:
+    name: NetworkManager
+    state: restarted
+  when: nm_config.changed
+
+- name: VM OS - Fixar os servidores DNS do Google de forma definitiva
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver 8.8.8.8
+      nameserver 8.8.4.4
+    mode: '0644'
+
+- name: VM OS - Instalar ferramentas essenciais e descompactadores
+  ansible.builtin.dnf:
+    name:
+      - dnf-plugins-core
+      - curl
+      - git
+      - tar             
+      - gzip            
+      - python3-pip
+      - epel-release
+    state: present

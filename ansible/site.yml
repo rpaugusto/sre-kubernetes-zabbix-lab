@@ -3,31 +3,12 @@
   hosts: all
   become: true
 
-  # Preparamos o Sistema Operacional da VM
+  # CAMADA 1: Tarefas isoladas de Sistema Operacional
   tasks:
-    - name: VM OS - Configurar DNS público persistente no NetworkManager
-      ansible.builtin.lineinfile:
-        path: /etc/NetworkManager/NetworkManager.conf
-        regexp: '^\[main\]'
-        line: "[main]\ndns=none"
-        state: present
-      register: nm_config
+    - name: Carregar preparações básicas da máquina virtual
+      ansible.builtin.include_tasks: tasks/system_bootstrap.yml
 
-    - name: VM OS - Reiniciar o NetworkManager se a configuração mudou
-      ansible.builtin.systemd:
-        name: NetworkManager
-        state: restarted
-      when: nm_config.changed
-
-    - name: VM OS - Fixar os servidores DNS do Google de forma definitiva
-      ansible.builtin.copy:
-        dest: /etc/resolv.conf
-        content: |
-          nameserver 8.8.8.8
-          nameserver 8.8.4.4
-        mode: '0644'
-
-  # Chamar as Roles isoladas
+  # CAMADA 2: Roles de Aplicativos e Serviços
   roles:
     - docker_observability
     - kubernetes_lab
