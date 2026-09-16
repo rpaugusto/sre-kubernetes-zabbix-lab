@@ -20,6 +20,12 @@
     - { src: 'dashboards.yaml', dest: '/opt/observability/grafana/provisioning/dashboards/dashboards.yaml' }
     - {src: plugins.yaml, dest: /opt/observability/grafana/provisioning/plugins.yaml}
 
+- name: Realizar o download da imagem do Grafana de forma antecipada
+  ansible.builtin.command:
+    cmd: docker compose pull
+    chdir: /opt/observability/grafana
+  changed_when: true
+  
 - name: Subir container do Grafana via Docker Compose
   ansible.builtin.command:
     cmd: docker compose up -d

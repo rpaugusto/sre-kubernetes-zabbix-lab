@@ -7,7 +7,7 @@
 
 - name: Copiar arquivo do docker-compose estático para o lab
   copy:
-    src: docker-compose.yml
+    src: docker-compose-zabbix.yml
     dest: /opt/observability/zabbix/docker-compose.yml
     mode: '0644'
 

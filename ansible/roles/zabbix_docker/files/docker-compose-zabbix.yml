@@ -23,7 +23,7 @@ services:
     ports:
       - "10051:10051"
     volumes:
-      - zabbix_export:/var/lib/zabbix/export
+      - zabbix_data:/var/lib/zabbix/export
     environment:
       DB_SERVER_HOST: zabbix-mysql
       MYSQL_DATABASE: "zabbix"
@@ -73,4 +73,9 @@ services:
 
 volumes:
   mysql_data:
-  zabbix_export:
+  zabbix_data:
+
+# Defines the default network that this compose file will spin up
+networks:
+  default:
+    name: observability-net
