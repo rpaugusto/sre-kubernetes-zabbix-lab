@@ -80,3 +80,7 @@
 - name: Mostrar pods
   ansible.builtin.debug:
     msg: "{{ k3s_pods.stdout }}"
+
+- name: Instalar kube-state-metrics
+  ansible.builtin.include_tasks:
+    file: kube-state-metrics.yml

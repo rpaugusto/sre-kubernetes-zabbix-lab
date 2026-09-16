@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION}
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION=true
+      - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=alexanderzobnin-zabbix-app,alexanderzobnin-zabbix-datasource
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    networks:
+      - zabbix-net
+    restart: always
+
+volumes:
+  grafana_data:
+
+networks:
+  # Conecta o Grafana na mesma rede bridge que a role do Zabbix criou
+  zabbix-net:
+    external: true
+    name: opt_zabbix-net

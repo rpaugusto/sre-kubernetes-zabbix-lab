@@ -1,0 +1,27 @@
+---
+- name: Criar diretórios de persistência e provisionamento do Grafana
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/observability/grafana
+    - /opt/observability/grafana/provisioning/datasources
+    - /opt/observability/grafana/provisioning/dashboards
+
+- name: Copiar arquivos de provisionamento e compose do Grafana
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { src: 'docker-compose-grafana.yml', dest: '/opt/observability/grafana/docker-compose.yml' }
+    - { src: 'datasources.yaml', dest: '/opt/observability/grafana/provisioning/datasources/zabbix.yaml' }
+    - { src: 'dashboards.yaml', dest: '/opt/observability/grafana/provisioning/dashboards/dashboards.yaml' }
+
+- name: Subir container do Grafana via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: /opt/observability/grafana
+  register: grafana_out
+  changed_when: "'Creating' in grafana_out.stdout or 'Starting' in grafana_out.stdout"

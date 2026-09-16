@@ -8,6 +8,7 @@
     - common
     - docker
     - zabbix_docker
+    - grafana_docker
     - k3s
     - sample_app_docker
     - sample_app_k8s

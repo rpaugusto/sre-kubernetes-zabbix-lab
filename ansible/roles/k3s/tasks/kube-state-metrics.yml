@@ -1,0 +1,58 @@
+---
+- name: Criar diretório temporário do kube-state-metrics
+  ansible.builtin.file:
+    path: /tmp/kube-state-metrics
+    state: directory
+    mode: '0755'
+
+- name: Baixar manifests do kube-state-metrics
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/kubernetes/kube-state-metrics/v2.17.0/examples/standard/{{ item }}"
+    dest: "/tmp/kube-state-metrics/{{ item }}"
+    mode: '0644'
+  loop:
+    - service-account.yaml
+    - cluster-role.yaml
+    - cluster-role-binding.yaml
+    - deployment.yaml
+    - service.yaml
+
+- name: Instalar kube-state-metrics
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/k3s kubectl apply
+      -f /tmp/kube-state-metrics
+  register: ksm_install
+  changed_when: >
+    'created' in ksm_install.stdout or
+    'configured' in ksm_install.stdout
+
+- name: Aguardar kube-state-metrics ficar disponível
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/k3s kubectl
+      wait
+      --for=condition=Available
+      deployment/kube-state-metrics
+      -n kube-system
+      --timeout=120s
+  register: ksm_ready
+  retries: 3
+  delay: 10
+  until: ksm_ready.rc == 0
+  changed_when: false
+
+- name: Verificar pod do kube-state-metrics
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/k3s kubectl
+      get pods
+      -n kube-system
+      -l app.kubernetes.io/name=kube-state-metrics
+      -o wide
+  register: ksm_pods
+  changed_when: false
+
+- name: Exibir status do kube-state-metrics
+  ansible.builtin.debug:
+    msg: "{{ ksm_pods.stdout }}"
