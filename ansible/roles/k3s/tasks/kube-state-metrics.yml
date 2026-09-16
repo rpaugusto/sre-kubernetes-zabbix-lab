@@ -1,4 +1,5 @@
 ---
+# SECTION 1: LINUX KERNEL PERFORMANCE OPTIMIZATIONS (KSM) =======================
 - name: Ativar Kernel Samepage Merging (KSM) em tempo de execucao
   ansible.builtin.shell:
     cmd: echo 1 > /sys/kernel/mm/ksm/run
@@ -12,6 +13,7 @@
     mode: '0644'
   ignore_errors: true
 
+# SECTION 2: LIGHTWEIGHT K3S ENGINE BOOTSTRAP ===================================
 - name: Baixar e rodar o instalador do k3s limpando os plugins pesados de RAM
   ansible.builtin.shell: |
     curl -sfL https://k3s.io | INSTALL_K3S_EXEC="--disable traefik --disable local-storage --disable metrics-server" sh -
@@ -28,7 +30,8 @@
     cmd: /usr/local/bin/k3s kubectl wait --for=condition=Ready node --all --timeout=60s
   changed_when: false
 
-- name: Criar diretorio temporario do kube-state-metrics
+# SECTION 3: DEPLOY KUBE-STATE-METRICS =========================================
+- name: Criar diretório temporário do kube-state-metrics
   ansible.builtin.file:
     path: /tmp/kube-state-metrics
     state: directory
@@ -36,17 +39,17 @@
 
 - name: Baixar manifests do kube-state-metrics
   ansible.builtin.get_url:
-    url: "https://githubusercontent.com{{ item }}"
+    url: "https://raw.githubusercontent.com/kubernetes/kube-state-metrics/v2.17.0/examples/standard/{{ item }}"
     dest: "/tmp/kube-state-metrics/{{ item }}"
     mode: '0644'
   loop:
+    - service-account.yaml
     - cluster-role.yaml
     - cluster-role-binding.yaml
     - deployment.yaml
     - service.yaml
-    - service-account.yaml
 
-- name: Limitar recursos do Deployment do KSM no laboratorio local
+- name: Limitar recursos do Deployment do KSM no laboratório local
   ansible.builtin.replace:
     path: /tmp/kube-state-metrics/deployment.yaml
     regexp: 'image: registry.k8s.io/kube-state-metrics/kube-state-metrics:.*'
@@ -54,30 +57,34 @@
 
 - name: Instalar kube-state-metrics
   ansible.builtin.command:
-    cmd: /usr/local/bin/k3s kubectl apply -f /tmp/kube-state-metrics
+    cmd: >
+      /usr/local/bin/k3s kubectl apply
+      -f /tmp/kube-state-metrics
   register: ksm_install
   changed_when: >
     'created' in ksm_install.stdout or
     'configured' in ksm_install.stdout
 
-- name: Aguardar kube-state-metrics ficar disponivel
+- name: Aguardar kube-state-metrics ficar disponível
   ansible.builtin.command:
     cmd: >
-      /usr/local/bin/k3s kubectl wait
+      /usr/local/bin/k3s kubectl
+      wait
       --for=condition=Available
       deployment/kube-state-metrics
       -n kube-system
       --timeout=120s
   register: ksm_ready
-  retries: 5
-  delay: 15
+  retries: 5             # Aumentado levemente para dar margem de segurança no Rocky 9
+  delay: 15              # Aumentado levemente para evitar falhas de timeout por rede lenta
   until: ksm_ready.rc == 0
   changed_when: false
 
 - name: Verificar pod do kube-state-metrics
   ansible.builtin.command:
     cmd: >
-      /usr/local/bin/k3s kubectl get pods
+      /usr/local/bin/k3s kubectl
+      get pods
       -n kube-system
       -l app.kubernetes.io/name=kube-state-metrics
       -o wide
@@ -87,3 +94,4 @@
 - name: Exibir status do kube-state-metrics
   ansible.builtin.debug:
     msg: "{{ ksm_pods.stdout }}"
+
