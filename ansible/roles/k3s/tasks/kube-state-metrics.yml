@@ -17,6 +17,12 @@
     - deployment.yaml
     - service.yaml
 
+- name: Limitar recursos do Deployment do KSM no laboratório local
+  ansible.builtin.replace:
+    path: /tmp/kube-state-metrics/deployment.yaml
+    regexp: 'image: registry.k8s.io/kube-state-metrics/kube-state-metrics:.*'
+    replace: 'image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0'
+
 - name: Instalar kube-state-metrics
   ansible.builtin.command:
     cmd: >
