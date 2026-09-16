@@ -1,17 +1,24 @@
 ---
 - name: Criar pasta para manifestos do Kubernetes
-  file:
+  ansible.builtin.file:
     path: /opt/k8s-apps
     state: directory
     mode: '0755'
 
-- name: Copiar manifesto de aplicacao Kubernetes estatico
-  copy:
+- name: Copiar manifesto de aplicação Kubernetes estático
+  ansible.builtin.copy:
     src: k8s-app-manifest.yml
     dest: /opt/k8s-apps/app-k8s.yml
     mode: '0644'
 
-- name: Aplicar manifesto no k3s local
-  command: k3s kubectl apply -f /opt/k8s-apps/app-k8s.yml
+- name: Aplicar manifesto no K3s local
+  ansible.builtin.command:
+    cmd: /usr/local/bin/k3s kubectl apply -f /opt/k8s-apps/app-k8s.yml
   register: k8s_deploy_result
-  changed_when: "'configured' in k8s_deploy_result.stdout or 'created' in k8s_deploy_result.stdout"
+  changed_when: >
+    'created' in k8s_deploy_result.stdout or
+    'configured' in k8s_deploy_result.stdout
+
+- name: Exibir resultado do deploy Kubernetes
+  ansible.builtin.debug:
+    msg: "{{ k8s_deploy_result.stdout_lines }}"

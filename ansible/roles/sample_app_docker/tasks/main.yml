@@ -1,9 +1,19 @@
 ---
-- name: Provisionar container da app corporativa de teste via Docker
-  docker_container:
-    name: app-corporativa-docker
-    image: nginx:alpine
-    ports:
-      - "8081:80"
-    restart_policy: unless-stopped
-    state: started
+- name: Criar diretório da aplicação
+  ansible.builtin.file:
+    path: /opt/observability/sample-app
+    state: directory
+    mode: '0755'
+
+- name: Copiar Docker Compose da aplicação
+  ansible.builtin.copy:
+    src: docker-compose.yml
+    dest: /opt/observability/sample-app/docker-compose.yml
+    mode: '0644'
+
+- name: Subir aplicação corporativa de teste
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: /opt/observability/sample-app
+  register: sample_app_compose
+  changed_when: true

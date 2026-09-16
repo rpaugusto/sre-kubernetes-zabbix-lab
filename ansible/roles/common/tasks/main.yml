@@ -1,18 +1,14 @@
 ---
-- name: Instalar repositorio EPEL
-  dnf:
-    name: epel-release
-    state: present
-
 - name: Instalar utilitarios de SRE
   dnf:
     name:
+      - dnf-plugins-core
       - curl
-      - htop
       - git
-      - unzip
-      - net-tools
-      - tar
+      - tar             
+      - gzip            
+      - python3-pip
+      - epel-release
     state: present
     update_cache: yes
 

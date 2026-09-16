@@ -4,7 +4,10 @@ services:
   zabbix-mysql:
     image: mysql:8.0
     container_name: zabbix-mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_bin
+      - --default-authentication-plugin=mysql_native_password
     volumes:
       - mysql_data:/var/lib/mysql
     environment:
@@ -13,14 +16,9 @@ services:
       MYSQL_USER: "zabbix"
       MYSQL_PASSWORD: "zabbix_password_secure"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
+    
   zabbix-server:
-    image: zabbix/zabbix-server-mysql:ubuntu-7.0-latest
+    image: zabbix/zabbix-server-mysql:ubuntu-7.4-latest
     container_name: zabbix-server
     ports:
       - "10051:10051"
@@ -34,11 +32,10 @@ services:
       MYSQL_ROOT_PASSWORD: "root_password_sre_2026"
     restart: unless-stopped
     depends_on:
-      zabbix-mysql:
-        condition: service_healthy
+      - zabbix-mysql
 
   zabbix-web:
-    image: zabbix/zabbix-web-nginx-mysql:ubuntu-7.0-latest
+    image: zabbix/zabbix-web-nginx-mysql:ubuntu-7.4-latest
     container_name: zabbix-web
     ports:
       - "80:8080"
@@ -52,8 +49,27 @@ services:
       PHP_TZ: "America/Sao_Paulo"
     restart: unless-stopped
     depends_on:
-      zabbix-mysql:
-        condition: service_healthy
+      - zabbix-mysql
+  
+  zabbix-agent2:
+    image: zabbix/zabbix-agent2:ubuntu-7.4-latest
+    container_name: zabbix_agent2
+    restart: always
+    user: "0:0"
+    ports:
+      - "10050:10050"
+    environment:
+      - ZBX_SERVER_HOST=zabbix-server,127.0.0.1
+      - ZBX_SERVER_ACTIVE=zabbix-server,127.0.0.1
+      - ZBX_HOSTNAME=zabbix_agent2
+      - ZBX_PASSIVE_ALLOW=true
+      - ZBX_REFRESHACTIVECHECKS=120
+    volumes:
+      - /:/host:ro
+      - /etc/hostname:/etc/ro_hostname:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    privileged: true
 
 volumes:
   mysql_data:
