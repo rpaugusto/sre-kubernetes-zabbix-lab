@@ -18,6 +18,7 @@
     - { src: 'docker-compose-grafana.yml', dest: '/opt/observability/grafana/docker-compose.yml' }
     - { src: 'datasources.yaml', dest: '/opt/observability/grafana/provisioning/datasources/zabbix.yaml' }
     - { src: 'dashboards.yaml', dest: '/opt/observability/grafana/provisioning/dashboards/dashboards.yaml' }
+    - {src: plugins.yaml, dest: /opt/observability/grafana/provisioning/plugins.yaml}
 
 - name: Subir container do Grafana via Docker Compose
   ansible.builtin.command:
