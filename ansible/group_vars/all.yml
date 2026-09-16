@@ -1,0 +1,11 @@
+---
+# Configurações de Rede
+vm_ip: "192.168.56.10"
+
+# Stack Zabbix em Docker
+zabbix_version: "ubuntu-7.0-latest"
+mysql_version: "8.0"
+mysql_root_password: "root_password_sre_2026"
+mysql_database: "zabbix"
+mysql_user: "zabbix"
+mysql_password: "zabbix_password_secure"

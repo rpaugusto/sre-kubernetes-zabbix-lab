@@ -1,0 +1,28 @@
+---
+- name: Adicionar repositorio oficial do Docker CE
+  ansible.builtin.get_url:
+    url: https://docker.com
+    dest: /etc/yum.repos.d/docker-ce.repo
+    mode: '0644'
+
+- name: Instalar pacotes do Docker e Docker Compose
+  dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+
+- name: Ativar e iniciar servico do Docker
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Incluir usuario vagrant no grupo do Docker
+  user:
+    name: vagrant
+    groups: docker
+    append: yes

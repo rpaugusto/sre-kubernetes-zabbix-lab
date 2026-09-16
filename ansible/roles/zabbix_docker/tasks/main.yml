@@ -1,0 +1,19 @@
+---
+- name: Criar pasta da stack do Zabbix
+  file:
+    path: /opt/zabbix-docker
+    state: directory
+    mode: '0755'
+
+- name: Copiar arquivo do docker-compose estático para o lab
+  copy:
+    src: docker-compose.yml
+    dest: /opt/zabbix-docker/docker-compose.yml
+    mode: '0644'
+
+- name: Subir os containers do Zabbix Server e Web Frontend
+  command: docker compose up -d
+  args:
+    chdir: /opt/zabbix-docker
+  register: compose_up_result
+  changed_when: "'Started' in compose_up_result.stderr or 'Created' in compose_up_result.stderr"

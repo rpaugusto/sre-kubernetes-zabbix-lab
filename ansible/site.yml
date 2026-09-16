@@ -1,14 +1,14 @@
 ---
-- name: SRE Lab - Provisionamento da Stack de Observabilidade
-  hosts: all
+- name: Master Playbook - SRE Lab Bootstrap
+  hosts: lab
   become: true
+  gather_facts: true
 
-  # CAMADA 1: Tarefas isoladas de Sistema Operacional
-  tasks:
-    - name: Carregar preparações básicas da máquina virtual
-      ansible.builtin.include_tasks: tasks/system_bootstrap.yml
-
-  # CAMADA 2: Roles de Aplicativos e Serviços
   roles:
-    - docker_observability
-    - kubernetes_lab
+    - common
+    - docker
+    - zabbix_docker
+    - zabbix_agent
+    - k3s
+    - sample_app_docker
+    - sample_app_k8s

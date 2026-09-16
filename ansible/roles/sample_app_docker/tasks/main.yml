@@ -1,0 +1,9 @@
+---
+- name: Provisionar container da app corporativa de teste via Docker
+  docker_container:
+    name: app-corporativa-docker
+    image: nginx:alpine
+    ports:
+      - "8081:80"
+    restart_policy: unless-stopped
+    state: started
