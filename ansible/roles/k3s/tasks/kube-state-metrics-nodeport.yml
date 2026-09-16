@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics-exposed
+  namespace: kube-system
+spec:
+  type: NodePort
+  selector:
+    # Isso conecta este novo serviço aos pods originais do kube-state-metrics
+    app.kubernetes.io/name: kube-state-metrics
+  ports:
+    - name: http-metrics-browser
+      port: 8082
+      targetPort: 8080
+      nodePort: 30082

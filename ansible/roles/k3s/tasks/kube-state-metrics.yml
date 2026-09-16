@@ -100,4 +100,3 @@
 - name: Exibir status do kube-state-metrics
   ansible.builtin.debug:
     msg: "{{ ksm_pods.stdout }}"
-
